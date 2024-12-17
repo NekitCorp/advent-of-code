@@ -1,3 +1,5 @@
+import Heap from "heap-js";
+
 const input = await Bun.file(`${import.meta.dir}/input.txt`).text();
 const grid = input.split("\n").map((row) => row.split(""));
 
@@ -18,67 +20,86 @@ const DIRS = [
     [-1, 0], // up
 ];
 
+type NodeItem = {
+    i: number;
+    j: number;
+    dir: number;
+    score: number;
+    path: [number, number][];
+};
+
 let minScore = Infinity;
-let set = new Set<string>();
+let tiles = new Set<string>();
 
-function dfs(
-    i: number,
-    j: number,
-    score: number,
-    cache: Record<string, number>,
-    dir: number,
-    path: [number, number][]
-): number {
-    if (i === e[0] && j === e[1]) {
-        if (score < minScore) {
-            minScore = score;
-            set = new Set<string>();
+function minPath() {
+    const visited: Record<string, number> = {};
+    const pq = new Heap<NodeItem>((a, b) => a.score - b.score);
 
-            for (const [i, j] of path) {
-                set.add(`${i},${j}`);
-            }
-        } else if (score === minScore) {
-            for (const [i, j] of path) {
-                set.add(`${i},${j}`);
-            }
-        } else {
-            return Infinity;
+    pq.push({ i: s[0], j: s[1], dir: 0, score: 0, path: [] });
+
+    while (pq.length > 0) {
+        const { dir, i, j, score, path } = pq.pop()!;
+
+        if (score > minScore) {
+            continue;
         }
+
+        if (visited[`${i},${j},${dir}`] && visited[`${i},${j},${dir}`] < score) {
+            continue;
+        }
+
+        visited[`${i},${j},${dir}`] = score;
+
+        if (i < 0 || i >= grid.length || j < 0 || j >= grid[0].length || grid[i][j] === "#") {
+            continue;
+        }
+
+        if (i === e[0] && j === e[1]) {
+            if (score < minScore) {
+                minScore = score;
+                tiles = new Set(path.map(([i, j]) => `${i},${j}`));
+            }
+
+            if (score === minScore) {
+                for (const [i, j] of path) {
+                    tiles.add(`${i},${j}`);
+                }
+            }
+        }
+
+        const prevDir = (dir + 1) % 4;
+        const nextDir = dir === 0 ? 3 : dir - 1;
+
+        pq.push(
+            {
+                i: i + DIRS[dir][0],
+                j: j + DIRS[dir][1],
+                score: score + 1,
+                dir,
+                path: [...path, [i, j]],
+            },
+            {
+                i: i + DIRS[prevDir][0],
+                j: j + DIRS[prevDir][1],
+                score: score + 1001,
+                dir: prevDir,
+                path: [...path, [i, j]],
+            },
+            {
+                i: i + DIRS[nextDir][0],
+                j: j + DIRS[nextDir][1],
+                score: score + 1001,
+                dir: nextDir,
+                path: [...path, [i, j]],
+            }
+        );
     }
-
-    if (i < 0 || i >= grid.length || j < 0 || j >= grid[0].length || grid[i][j] === "#") {
-        return Infinity;
-    }
-
-    if (score >= minScore) {
-        return Infinity;
-    }
-
-    if (cache[`${i},${j},${dir}`] && cache[`${i},${j},${dir}`] < score) {
-        return Infinity;
-    }
-    cache[`${i},${j},${dir}`] = score;
-
-    const prevDir = (dir + 1) % 4;
-    const nextDir = dir === 0 ? 3 : dir - 1;
-
-    return Math.min(
-        dfs(i + DIRS[dir][0], j + DIRS[dir][1], score + 1, cache, dir, [...path, [i, j]]),
-        dfs(i + DIRS[prevDir][0], j + DIRS[prevDir][1], score + 1001, cache, prevDir, [
-            ...path,
-            [i, j],
-        ]),
-        dfs(i + DIRS[nextDir][0], j + DIRS[nextDir][1], score + 1001, cache, nextDir, [
-            ...path,
-            [i, j],
-        ])
-    );
 }
 
-dfs(s[0], s[1], 0, {}, 0, []);
+minPath();
 
 console.log({
     e,
     s,
-    points: set.size + 1,
+    points: tiles.size + 1,
 });
